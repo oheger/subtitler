@@ -20,6 +20,7 @@ lazy val VersionSubtitler = "0.1-SNAPSHOT"
 /** Definition of versions for compile-time dependencies. */
 lazy val VersionPekko = "1.2.0"
 lazy val VersionScala = "3.7.3"
+lazy val VersionSprayJson = "1.3.6"
 lazy val VersionVosk = "0.3.45"
 
 /** Definition of versions for test dependencies. */
@@ -52,6 +53,7 @@ lazy val Subtitler = (project in file("."))
     version := VersionSubtitler,
     scalaVersion := VersionScala,
     libraryDependencies += "com.alphacephei" % "vosk" % VersionVosk,
+    libraryDependencies += "io.spray" %%  "spray-json" % VersionSprayJson,
     libraryDependencies ++= pekkoDependencies,
     libraryDependencies ++= testDependencies,
     name := "subtitler"
