@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.oheger.speech2text
+package com.github.oheger.subtitler
 
 import org.vosk.{Model, Recognizer}
 

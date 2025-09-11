@@ -18,8 +18,25 @@
 lazy val VersionSubtitler = "0.1-SNAPSHOT"
 
 /** Definition of versions for compile-time dependencies. */
+lazy val VersionPekko = "1.2.0"
 lazy val VersionScala = "3.7.3"
 lazy val VersionVosk = "0.3.45"
+
+/** Definition of versions for test dependencies. */
+lazy val VersionScalaTest = "3.2.19"
+lazy val VersionScalaTestMockito = "3.2.19.0"
+
+/** The dependencies to Apache Pekko libraries. */
+lazy val pekkoDependencies = Seq(
+  "org.apache.pekko" %% "pekko-stream" % VersionPekko,
+  "org.apache.pekko" %% "pekko-testkit" % VersionPekko % Test
+)
+
+/** The dependencies used for testing. */
+lazy val testDependencies = Seq(
+  "org.scalatest" %% "scalatest" % VersionScalaTest % "test",
+  "org.scalatestplus" %% "mockito-5-18" % VersionScalaTestMockito % "test"
+)
 
 scalacOptions ++=
   Seq(
@@ -35,5 +52,7 @@ lazy val Subtitler = (project in file("."))
     version := VersionSubtitler,
     scalaVersion := VersionScala,
     libraryDependencies += "com.alphacephei" % "vosk" % VersionVosk,
+    libraryDependencies ++= pekkoDependencies,
+    libraryDependencies ++= testDependencies,
     name := "subtitler"
   )
