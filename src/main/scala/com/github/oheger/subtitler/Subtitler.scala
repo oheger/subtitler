@@ -13,40 +13,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.github.oheger.subtitler
 
-import org.vosk.{Model, Recognizer}
+import com.github.oheger.subtitler.stream.SpeechRecognizerStream
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.Sink
 
-import java.io.{BufferedInputStream, FileInputStream}
-import javax.sound.sampled.AudioSystem
-import scala.annotation.tailrec
-import scala.util.Using
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+import scala.util.Failure
 
 object Subtitler:
   def main(args: Array[String]): Unit =
     if args.length != 2 then
-      println("Usage: subtitler <model> <input>")
+      println("Usage: subtitler <model> <mixer>")
       println("  <model>: path to the extracted model files")
-      println("  <input>: path to the wav file to be processed.")
+      println("  <mixer>: the name of the mixer to capture audio from")
       System.exit(1)
 
-    Using.Manager: use =>
-      val model = use(new Model(args(0)))
-      val audioIn = use(AudioSystem.getAudioInputStream(new BufferedInputStream(new FileInputStream(args(1)))))
-      val recognizer = use(new Recognizer(model, audioIn.getFormat.getSampleRate))
+    val system = ActorSystem("Subtitler")
 
-      val format = audioIn.getFormat
-      println("Audio format: " + format)
-      val buf = new Array[Byte](4096)
+    given ActorSystem = system
 
-      @tailrec def processInput(): Unit =
-        val count = audioIn.read(buf)
-        if count >= 0 then
-          if recognizer.acceptWaveForm(buf, count) then
-            println(s"[result]: ${recognizer.getResult}")
-          else
-            println(s"[partial]: ${recognizer.getPartialResult}")
-          processInput()
+    val sink = Sink.foreach[String](println)
+    val streamHandle = SpeechRecognizerStream.run(args(1), args.head, sink)
 
-      processInput()
-      println(s"[final]: ${recognizer.getFinalResult}")
+    println("Capturing audio...")
+    Await.ready(streamHandle.materializedValue, Duration.Inf)
+
+    streamHandle.materializedValue.value match
+      case Some(Failure(exception)) =>
+        println("Stream for speech recognition failed:")
+        exception.printStackTrace()
+      case _ =>
+        println("Stream for speech recognition completed.")
+
+    Await.result(system.terminate(), Duration.Inf)
