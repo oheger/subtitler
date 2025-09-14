@@ -18,8 +18,10 @@
 lazy val VersionSubtitler = "0.1-SNAPSHOT"
 
 /** Definition of versions for compile-time dependencies. */
+lazy val VersionJavaFX = "21.0.8"
 lazy val VersionPekko = "1.2.0"
 lazy val VersionScala = "3.7.3"
+lazy val VersionScalaFX = "21.0.0-R32"
 lazy val VersionSprayJson = "1.3.6"
 lazy val VersionVosk = "0.3.45"
 
@@ -39,6 +41,22 @@ lazy val testDependencies = Seq(
   "org.scalatestplus" %% "mockito-5-18" % VersionScalaTestMockito % "test"
 )
 
+/**
+  * Returns the platform-specific JavaFX libraries.
+  *
+  * @return the JavaFX dependencies for the current platform.
+  */
+def javaFxDependencies(): Seq[ModuleID] = {
+  val javaFXClassifier = System.getProperty("os.name") match {
+    case n if n.startsWith("Linux") => "linux"
+    case n if n.startsWith("Mac") => "mac"
+    case n if n.startsWith("Windows") => "win"
+    case _ => throw new Exception("Unknown platform!")
+  }
+  Seq("base", "controls", "fxml", "graphics", "media", "swing", "web")
+    .map(m => "org.openjfx" % s"javafx-$m" % VersionJavaFX classifier javaFXClassifier)
+}
+
 scalacOptions ++=
   Seq(
     "-feature",
@@ -53,7 +71,9 @@ lazy val Subtitler = (project in file("."))
     version := VersionSubtitler,
     scalaVersion := VersionScala,
     libraryDependencies += "com.alphacephei" % "vosk" % VersionVosk,
-    libraryDependencies += "io.spray" %%  "spray-json" % VersionSprayJson,
+    libraryDependencies += "io.spray" %% "spray-json" % VersionSprayJson,
+    libraryDependencies += "org.scalafx" %% "scalafx" % VersionScalaFX,
+    libraryDependencies ++= javaFxDependencies(),
     libraryDependencies ++= pekkoDependencies,
     libraryDependencies ++= testDependencies,
     name := "subtitler"
