@@ -22,13 +22,18 @@ import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Sink
 import scalafx.beans.binding.Bindings
-import scalafx.beans.property.{ObjectProperty, StringProperty}
+import scalafx.beans.property.{IntegerProperty, ObjectProperty, StringProperty}
 import scalafx.stage.{DirectoryChooser, Window}
 
 import java.io.File
 import javax.sound.sampled.AudioSystem
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
+
+object Controller:
+  /** The default number of subtitles that are displayed. */
+  final val DefaultSubtitleCount = 3
+end Controller
 
 /**
   * A class acting a controller for the UI of this application.
@@ -43,6 +48,9 @@ import scala.concurrent.duration.Duration
 class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
                  synchronizer: UiSynchronizer = new UiSynchronizer,
                  streamRunner: SpeechRecognizerStream.Runner = SpeechRecognizerStream.run):
+
+  import Controller.*
+
   /**
     * A property that stores the Audio mixers that are currently available.
     * This is used to populate the combo box for selecting the audio input.
@@ -62,6 +70,13 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
   final val modelPath: StringProperty = StringProperty("")
 
   /**
+    * A property that stores the number of subtitles to be displayed. When new
+    * text is recognized, the oldest subtitle is removed, and a new is added to
+    * keep this number.
+    */
+  final val subtitleCount = IntegerProperty(DefaultSubtitleCount)
+
+  /**
     * Stores the handle to a currently running speech recognition stream.
     */
   private val streamHandle: ObjectProperty[Option[SpeechRecognizerStream.StreamHandle[Done]]] = ObjectProperty(None)
@@ -78,6 +93,15 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
         streamHandle.value.isEmpty,
       dependencies = selectedInputDevice, modelPath, streamHandle
     )
+
+  /**
+    * A property with a list that contains the currently available subtitles.
+    * This can be bound to the UI that displays subtitles.
+    */
+  final val subtitles = ObjectProperty(FXCollections.observableArrayList[String]())
+
+  /** The execution context to use for operations on futures. */
+  private given ExecutionContext = actorSystem.dispatcher
 
   /**
     * Initializes this controller. This function must be called when the
@@ -123,8 +147,57 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
     */
   def startRecognizerStream(): Boolean =
     if canStartRecognizerStream.value then
-      val handle = streamRunner(selectedInputDevice.value, modelPath.value, Sink.ignore)(using actorSystem)
+      subtitles.value.clear()
+      val handle = streamRunner(selectedInputDevice.value, modelPath.value, recognizerStreamSink)(using actorSystem)
+      handleCompletedStream(handle)
       streamHandle.value = Some(handle)
       true
     else
       false
+
+  /**
+    * Stops a currently running stream to recognize speech. The return value
+    * indicates whether this was successful; '''false''' means that no stream
+    * is currently running.
+    *
+    * @return a flag indicating whether the operation was successful
+    */
+  def stopRecognizerStream(): Boolean =
+    streamHandle.value match
+      case Some(handle) =>
+        handle.cancel()
+        true
+      case None =>
+        false
+
+  /**
+    * Returns the [[Sink]] for the speech recognizer stream. This sink stores
+    * the recognized texts, making sure that processing happens on the event
+    * dispatch thread.
+    *
+    * @return the [[Sink]] for the recognizer stream
+    */
+  private def recognizerStreamSink: Sink[String, Future[Done]] =
+    Sink.foreach[String]: text =>
+      synchronizer.runOnEventThread:
+        val itemsCount = subtitles.value.size()
+        val items = if itemsCount < subtitleCount.value then
+          subtitles.value
+        else
+          subtitles.value.subList(itemsCount - subtitleCount.value + 1, itemsCount)
+
+        val newItems = FXCollections.observableArrayList[String]()
+        newItems.addAll(items)
+        newItems.add(text)
+        subtitles.value = newItems
+
+  /**
+    * Installs a handler to update the application state when the recognizer
+    * stream represented by the given handle completes.
+    *
+    * @param handle the handle to the stream
+    */
+  private def handleCompletedStream(handle: SpeechRecognizerStream.StreamHandle[Done]): Unit =
+    handle.materializedValue.foreach: _ =>
+      synchronizer.runOnEventThread:
+        streamHandle.value = None

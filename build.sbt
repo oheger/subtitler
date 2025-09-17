@@ -76,5 +76,6 @@ lazy val Subtitler = (project in file("."))
     libraryDependencies ++= javaFxDependencies(),
     libraryDependencies ++= pekkoDependencies,
     libraryDependencies ++= testDependencies,
-    name := "subtitler"
+    name := "subtitler",
+    Test / fork := true
   )
