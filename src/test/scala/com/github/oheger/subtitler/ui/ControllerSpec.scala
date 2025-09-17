@@ -34,7 +34,7 @@ import java.io.File
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import javax.sound.sampled.{AudioSystem, Mixer}
 import scala.compiletime.uninitialized
-import scala.concurrent.Promise
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Using
 
 object ControllerSpec:
@@ -87,6 +87,30 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
     audioSystemMock.when(() => AudioSystem.getMixerInfo).thenReturn(mixerInfos.toArray)
 
   /**
+    * Creates a mock stream handle and prepares it for the expected
+    * interactions.
+    *
+    * @return the mock stream handle
+    */
+  private def createHandleMock(): SpeechRecognizerStream.StreamHandle[Done] =
+    val handle = mock[SpeechRecognizerStream.StreamHandle[Done]]
+    when(handle.materializedValue).thenReturn(Future.successful(Done))
+    handle
+
+  /**
+    * Creates a mock for an actor system. The mock is prepared to return its
+    * dispatcher which is used as execution context by the controller.
+    *
+    * @return the mock actor system
+    */
+  private def createActorSystemMock(): ActorSystem =
+    import scala.concurrent.ExecutionContext.Implicits.global
+    val ec: ExecutionContext = implicitly[ExecutionContext]
+    val system = mock[ActorSystem]
+    when(system.dispatcher).thenReturn(ec)
+    system
+
+  /**
     * Creates a controller instance to be tested using mocks for the
     * dependencies per default.
     *
@@ -95,7 +119,7 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
     * @param runner       the stream runner
     * @return the controller to be tested
     */
-  private def createController(actorSystem: ActorSystem = mock,
+  private def createController(actorSystem: ActorSystem = createActorSystemMock(),
                                synchronizer: UiSynchronizer = mock,
                                runner: SpeechRecognizerStream.Runner = mock): Controller =
     new Controller(
@@ -204,11 +228,11 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
 
   it should "start the recognizer stream" in :
     val ModelPath = "/path/to/speech/model"
-    val actorSystem = mock[ActorSystem]
+    val actorSystem = createActorSystemMock()
 
     given ActorSystem = actorSystem
 
-    val handle = mock[SpeechRecognizerStream.StreamHandle[Done]]
+    val handle = createHandleMock()
     val runner = mock[SpeechRecognizerStream.Runner]
     when(runner.apply(any(), any(), any(), any(), any())(using any())).thenReturn(handle)
 
@@ -220,7 +244,7 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
     verify(runner).apply(eqArg(Mixers.head), eqArg(ModelPath), any(), any(), any())(using eqArg(actorSystem))
 
   it should "disable the start button after starting the stream" in :
-    val handle = mock[SpeechRecognizerStream.StreamHandle[Done]]
+    val handle = createHandleMock()
     val runner = mock[SpeechRecognizerStream.Runner]
     when(runner.apply(any(), any(), any(), any(), any())(using any())).thenReturn(handle)
 
