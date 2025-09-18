@@ -17,7 +17,7 @@
 package com.github.oheger.subtitler.ui
 
 import com.github.oheger.subtitler.stream.{CaptureAudioSource, SpeechRecognizerStage, SpeechRecognizerStream}
-import com.github.oheger.subtitler.ui.ControllerStreamSpec.{InputDevice, ModelPath}
+import com.github.oheger.subtitler.ui.ControllerStreamSpec.{ErrorPrefix, InputDevice, ModelPath}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.BoundedSourceQueue
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
@@ -37,6 +37,12 @@ object ControllerStreamSpec:
 
   /** The name of the input device for audio capturing. */
   private val InputDevice = "My-test-input-device"
+
+  /**
+    * A prefix for a stream element that causes the stream to fail. This is
+    * used to test exception handling.
+    */
+  private val ErrorPrefix = "error:"
 end ControllerStreamSpec
 
 /**
@@ -108,6 +114,29 @@ class ControllerStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val helper = new StreamTestHelper
 
     helper.controller.stopRecognizerStream() shouldBe false
+
+  it should "record the exception if the stream fails" in :
+    val ErrorMessage = "Error during speech recognition."
+    val helper = new StreamTestHelper
+
+    helper.startStream()
+      .pushResult("some text")
+      .pushResult(ErrorPrefix + ErrorMessage)
+      .syncActions(2)
+
+    helper.controller.exceptionMessage.value should be(ErrorMessage)
+    helper.controller.exceptionClass.value should be("IllegalStateException")
+
+  it should "allow resetting error information" in :
+    val helper = new StreamTestHelper
+    import helper.controller.*
+    exceptionMessage.value = "Some exception message."
+    exceptionClass.value = "SomeException"
+
+    resetError()
+
+    exceptionMessage.value should be("")
+    exceptionClass.value should be("")
 
   /**
     * A test helper class managing a controller and its dependencies.
@@ -199,7 +228,9 @@ class ControllerStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
           syncActionQueue.offer(() => action)
 
     /**
-      * Creates the runner to start the test stream.
+      * Creates the runner to start the test stream. The source of the stream
+      * is using a queue for pushing single subtitles into the stream.
+      * Subtitles starting with an error prefix cause the stream to fail.
       *
       * @return the runner
       */
@@ -214,6 +245,11 @@ class ControllerStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
           mixerName should be(InputDevice)
           modelPath should be(ModelPath)
           val source = Source.queue[String](8)
+            .map: txt =>
+              if txt.startsWith(ErrorPrefix) then
+                throw new IllegalStateException(txt.drop(ErrorPrefix.length))
+              else
+                txt
           val graph = source.toMat(sink)(Keep.both)
           val (queue, futStream) = graph.run()
           refSourceQueue.set(queue)
