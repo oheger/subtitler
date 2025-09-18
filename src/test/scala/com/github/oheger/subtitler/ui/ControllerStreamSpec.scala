@@ -138,6 +138,45 @@ class ControllerStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     exceptionMessage.value should be("")
     exceptionClass.value should be("")
 
+  it should "show the config view initially" in :
+    val helper = new StreamTestHelper
+
+    helper.checkVisibilityFlags(configViewVisible = true)
+
+  it should "show the subtitles view if a stream is running" in :
+    val helper = new StreamTestHelper
+
+    helper.startStream()
+      .checkVisibilityFlags(subtitleViewVisible = true)
+      .completeStream()
+
+  it should "show the error view if the stream has failed" in :
+    val helper = new StreamTestHelper
+
+    helper.startStream()
+      .pushResult(ErrorPrefix + "Some error")
+      .syncActions(1)
+      .checkVisibilityFlags(errorViewVisible = true)
+
+  it should "show the config view after a stream completes" in :
+    val helper = new StreamTestHelper
+
+    helper.startStream()
+      .pushResult("some subtitle")
+      .completeStream()
+      .syncActions(2)
+      .checkVisibilityFlags(configViewVisible = true)
+
+  it should "show the config view after resetting an error" in :
+    val helper = new StreamTestHelper
+
+    helper.startStream()
+      .pushResult(ErrorPrefix + "Something went wrong.")
+      .syncActions(1)
+    helper.controller.resetError()
+
+    helper.checkVisibilityFlags(configViewVisible = true)
+
   /**
     * A test helper class managing a controller and its dependencies.
     */
@@ -214,6 +253,23 @@ class ControllerStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     private def sourceQueue: BoundedSourceQueue[String] =
       awaitCond(refSourceQueue.get() != null)
       refSourceQueue.get()
+
+    /**
+      * Checks the properties controlling the visibility of the different views
+      * against the expected values.
+      *
+      * @param configViewVisible   flag for the config view
+      * @param subtitleViewVisible flag for the subtitles view
+      * @param errorViewVisible    flag for the error view
+      * @return this test helper
+      */
+    def checkVisibilityFlags(configViewVisible: Boolean = false,
+                             subtitleViewVisible: Boolean = false,
+                             errorViewVisible: Boolean = false): StreamTestHelper =
+      controller.configViewVisible.value shouldBe configViewVisible
+      controller.subtitleViewVisible.value shouldBe subtitleViewVisible
+      controller.errorViewVisible.value shouldBe errorViewVisible
+      this
 
     /**
       * Creates a [[UiSynchronizer]] to be used for tests. This implementation
