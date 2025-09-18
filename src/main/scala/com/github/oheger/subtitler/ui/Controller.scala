@@ -21,7 +21,7 @@ import javafx.collections.{FXCollections, ObservableList}
 import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Sink
-import scalafx.beans.binding.Bindings
+import scalafx.beans.binding.{Bindings, BooleanBinding}
 import scalafx.beans.property.{IntegerProperty, ObjectProperty, StringProperty}
 import scalafx.stage.{DirectoryChooser, Window}
 
@@ -113,6 +113,32 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
     * This can be bound to the UI that displays subtitles.
     */
   final val subtitles = ObjectProperty(FXCollections.observableArrayList[String]())
+
+  /**
+    * A property that controls whether the error view should be displayed in
+    * the UI.
+    */
+  final val errorViewVisible: BooleanBinding = exceptionClass =!= ""
+
+  /**
+    * A property that controls whether the view showing the subtitles should be
+    * displayed in the UI.
+    */
+  final val subtitleViewVisible: BooleanBinding =
+    Bindings.createBooleanBinding(
+      func = () => streamHandle.value.isDefined && !errorViewVisible.value,
+      dependencies = streamHandle, errorViewVisible
+    )
+
+  /**
+    * A property that controls whether the configuration view should be
+    * displayed in the UI.
+    */
+  final val configViewVisible: BooleanBinding =
+    Bindings.createBooleanBinding(
+      func = () => !errorViewVisible.value && !subtitleViewVisible.value,
+      dependencies = streamHandle, subtitleViewVisible
+    )
 
   /** The execution context to use for operations on futures. */
   private given ExecutionContext = actorSystem.dispatcher
