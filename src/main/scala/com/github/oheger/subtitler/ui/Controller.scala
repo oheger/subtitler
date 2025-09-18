@@ -29,6 +29,7 @@ import java.io.File
 import javax.sound.sampled.AudioSystem
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
+import scala.util.Failure
 
 object Controller:
   /** The default number of subtitles that are displayed. */
@@ -75,6 +76,19 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
     * keep this number.
     */
   final val subtitleCount = IntegerProperty(DefaultSubtitleCount)
+
+  /**
+    * A property that stores the message of the exception if the recognizer
+    * stream has failed. This can then be displayed in the UI.
+    */
+  final val exceptionMessage = StringProperty("")
+
+  /**
+    * A property that stores the class of the exception if the recognizer
+    * stream has failed. This information can be of interest, too, to be
+    * displayed in the UI.
+    */
+  final val exceptionClass = StringProperty("")
 
   /**
     * Stores the handle to a currently running speech recognition stream.
@@ -171,6 +185,14 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
         false
 
   /**
+    * Resets information about a failed recognizer stream. This causes the UI
+    * to switch back to the configuration view.
+    */
+  def resetError(): Unit =
+    exceptionMessage.value = ""
+    exceptionClass.value = ""
+
+  /**
     * Returns the [[Sink]] for the speech recognizer stream. This sink stores
     * the recognized texts, making sure that processing happens on the event
     * dispatch thread.
@@ -198,6 +220,11 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
     * @param handle the handle to the stream
     */
   private def handleCompletedStream(handle: SpeechRecognizerStream.StreamHandle[Done]): Unit =
-    handle.materializedValue.foreach: _ =>
+    handle.materializedValue.onComplete: triedResult =>
       synchronizer.runOnEventThread:
         streamHandle.value = None
+        triedResult match
+          case Failure(exception) =>
+            exceptionMessage.value = exception.getMessage
+            exceptionClass.value = exception.getClass.getSimpleName
+          case _ =>
