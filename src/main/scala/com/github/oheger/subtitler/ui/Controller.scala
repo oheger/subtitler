@@ -25,7 +25,7 @@ import scalafx.beans.binding.{Bindings, BooleanBinding}
 import scalafx.beans.property.{IntegerProperty, ObjectProperty, StringProperty}
 import scalafx.stage.{DirectoryChooser, Window}
 
-import java.io.File
+import java.io.{File, IOException}
 import javax.sound.sampled.AudioSystem
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
@@ -34,6 +34,23 @@ import scala.util.Failure
 object Controller:
   /** The default number of subtitles that are displayed. */
   final val DefaultSubtitleCount = 3
+
+  /**
+    * Tries to generate a better exception message with hints to solve the
+    * problem based on the given exception.
+    *
+    * @param exception the exception causing the stream to fail
+    * @return an error message to display to the user
+    */
+  private def enhanceExceptionMessage(exception: Throwable): String =
+    exception match
+      case e: IOException =>
+        e.getMessage + "\nPlease check the 'Model path' property and make sure that it points to a " +
+          "directory containing Vosc model information."
+      case e: IllegalArgumentException =>
+        e.getMessage + "\nThe selected input device does not seem to support capturing audio. Please choose a " +
+          "different input device."
+      case e => e.getMessage
 end Controller
 
 /**
@@ -251,6 +268,6 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
         streamHandle.value = None
         triedResult match
           case Failure(exception) =>
-            exceptionMessage.value = exception.getMessage
+            exceptionMessage.value = enhanceExceptionMessage(exception)
             exceptionClass.value = exception.getClass.getSimpleName
           case _ =>
