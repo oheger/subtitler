@@ -18,10 +18,11 @@ package com.github.oheger.subtitler.ui
 
 import javafx.event.EventHandler
 import scalafx.application.JFXApp3
+import scalafx.beans.binding.Bindings
 import scalafx.geometry.Insets
-import scalafx.geometry.Pos.Center
+import scalafx.geometry.Pos.CenterLeft
 import scalafx.scene.Scene
-import scalafx.scene.control.{Button, ComboBox, Label, TextField, TitledPane}
+import scalafx.scene.control.*
 import scalafx.scene.layout.{BorderPane, HBox, StackPane, VBox}
 import scalafx.scene.paint.Color
 import scalafx.scene.shape.Circle
@@ -44,13 +45,12 @@ object UiMain extends JFXApp3:
       width = 640
       height = 480
       scene = new Scene:
-        content = new BorderPane:
+        root = new StackPane:
           padding = Insets(20, 20, 20, 20)
-          center = new StackPane:
-            children = Seq(
-              configPane
-            )
-
+          children = Seq(
+            configPane,
+            subtitlesPane
+          )
     controller.setUp()
 
   override def stopApp(): Unit =
@@ -64,6 +64,7 @@ object UiMain extends JFXApp3:
     */
   private def configPane: TitledPane =
     new TitledPane:
+      visible <== controller.configViewVisible
       text = "Configuration"
       collapsible = false
       content = new VBox:
@@ -74,10 +75,10 @@ object UiMain extends JFXApp3:
             text = "Model path:",
           new HBox:
             spacing = 20
-            alignment = Center
+            alignment = CenterLeft
             children = Seq(
               new TextField:
-                prefWidth = 200
+                prefWidth = 300
                 text <==> controller.modelPath,
               new Button:
                 text = "Select..."
@@ -87,7 +88,7 @@ object UiMain extends JFXApp3:
             text = "Input device:",
           new HBox:
             spacing = 20
-            alignment = Center
+            alignment = CenterLeft
             children = Seq(
               new ComboBox[String]:
                 items <==> controller.inputDevices
@@ -102,5 +103,42 @@ object UiMain extends JFXApp3:
             padding = Insets(20, 20, 20, 20)
             graphic = Circle(radius = 10, fill = Color(red = 0.8, green = 0, blue = 0, opacity = 1))
             disable <== !controller.canStartRecognizerStream
+            onAction.value = _ => controller.startRecognizerStream()
         )
 
+  /**
+    * Returns the pane showing the subtitles.
+    *
+    * @return the subtitles pane
+    */
+  private def subtitlesPane: BorderPane =
+    import scala.jdk.CollectionConverters.*
+    val subtitlesText = Bindings.createStringBinding(
+      func = () => controller.subtitles.value.asScala.mkString(
+        start = "",
+        end = "",
+        sep = "\n"
+      ),
+      dependencies = controller.subtitles
+    )
+    new BorderPane:
+      visible <== controller.subtitleViewVisible
+      center = new TextArea:
+        text <== subtitlesText
+        wrapText = true
+        editable = false
+        style =
+          """
+            |-fx-text-fill: blue;
+            |-fx-font-size: 24;
+            |-fx-font-weight: bolder;
+            |""".stripMargin
+      bottom = new HBox:
+        margin = Insets(top = 10, left = 10, right = 10, bottom = 10)
+        children = Seq(
+          new Button:
+            text = "Stop"
+            padding = Insets(20, 20, 20, 20)
+            graphic = Circle(radius = 10, fill = Color(red = 1, green = 1, blue = 1, opacity = 1))
+            onAction.value = _ => controller.stopRecognizerStream()
+        )
