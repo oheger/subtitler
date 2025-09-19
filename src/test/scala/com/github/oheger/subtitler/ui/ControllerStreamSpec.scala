@@ -17,7 +17,7 @@
 package com.github.oheger.subtitler.ui
 
 import com.github.oheger.subtitler.stream.{CaptureAudioSource, SpeechRecognizerStage, SpeechRecognizerStream}
-import com.github.oheger.subtitler.ui.ControllerStreamSpec.{ErrorPrefix, InputDevice, ModelPath}
+import com.github.oheger.subtitler.ui.ControllerStreamSpec.{ErrorPrefix, IOExceptionPrefix, IllegalArgumentExceptionPrefix, InputDevice, ModelPath, generateException}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.BoundedSourceQueue
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
@@ -26,6 +26,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.io.IOException
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.annotation.tailrec
@@ -39,10 +40,42 @@ object ControllerStreamSpec:
   private val InputDevice = "My-test-input-device"
 
   /**
-    * A prefix for a stream element that causes the stream to fail. This is
-    * used to test exception handling.
+    * A prefix for a stream element that causes the stream to fail with a
+    * default exception. This is used to test exception handling.
     */
   private val ErrorPrefix = "error:"
+
+  /**
+    * A prefix for a stream element that causes the stream to fail with an IO
+    * exception.
+    */
+  private val IOExceptionPrefix = "io-error:"
+
+  /**
+    * A prefix for a stream element that the stream to fail with an illegal
+    * argument exception.
+    */
+  private val IllegalArgumentExceptionPrefix = "illegal-error:"
+
+  /**
+    * Checks whether the given text indicates that an exception should be
+    * thrown. If so, a corresponding exception is generated using an optional
+    * type property.
+    *
+    * @param text the text flowing through the stream
+    * @return an [[Option]] with the exception to throw
+    */
+  private def generateException(text: String): Option[Throwable] =
+    val posPrefix = text.indexOf(':')
+    if posPrefix < 0 then
+      None
+    else
+      val message = text.substring(posPrefix + 1)
+      val exception = text.substring(0, posPrefix + 1) match
+        case IOExceptionPrefix => new IOException(message)
+        case IllegalArgumentExceptionPrefix => new IllegalArgumentException(message)
+        case _ => new IllegalStateException(message)
+      Some(exception)
 end ControllerStreamSpec
 
 /**
@@ -126,6 +159,30 @@ class ControllerStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
     helper.controller.exceptionMessage.value should be(ErrorMessage)
     helper.controller.exceptionClass.value should be("IllegalStateException")
+
+  it should "add error information if the model could not be loaded" in :
+    val ErrorMessage = "Failed to create model"
+    val helper = new StreamTestHelper
+
+    helper.startStream()
+      .pushResult(IOExceptionPrefix + ErrorMessage)
+      .syncActions(1)
+
+    helper.controller.exceptionClass.value should be("IOException")
+    helper.controller.exceptionMessage.value should startWith(ErrorMessage)
+    helper.controller.exceptionMessage.value should include("'Model path' property")
+
+  it should "add error information if the line could not be opened" in :
+    val ErrorMessage = "Line unsupported: interface TargetDataLine supporting format..."
+    val helper = new StreamTestHelper
+
+    helper.startStream()
+      .pushResult(IllegalArgumentExceptionPrefix + ErrorMessage)
+      .syncActions(1)
+
+    helper.controller.exceptionClass.value should be("IllegalArgumentException")
+    helper.controller.exceptionMessage.value should startWith(ErrorMessage)
+    helper.controller.exceptionMessage.value should include("Please choose a different input device")
 
   it should "allow resetting error information" in :
     val helper = new StreamTestHelper
@@ -302,10 +359,9 @@ class ControllerStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
           modelPath should be(ModelPath)
           val source = Source.queue[String](8)
             .map: txt =>
-              if txt.startsWith(ErrorPrefix) then
-                throw new IllegalStateException(txt.drop(ErrorPrefix.length))
-              else
-                txt
+              generateException(txt) match
+                case Some(exception) => throw exception
+                case None => txt
           val graph = source.toMat(sink)(Keep.both)
           val (queue, futStream) = graph.run()
           refSourceQueue.set(queue)
