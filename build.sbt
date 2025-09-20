@@ -19,6 +19,7 @@ lazy val VersionSubtitler = "0.1-SNAPSHOT"
 
 /** Definition of versions for compile-time dependencies. */
 lazy val VersionJavaFX = "21.0.8"
+lazy val VersionLog4j = "2.25.1"
 lazy val VersionPekko = "1.2.0"
 lazy val VersionScala = "3.7.3"
 lazy val VersionScalaFX = "21.0.0-R32"
@@ -33,6 +34,14 @@ lazy val VersionScalaTestMockito = "3.2.19.0"
 lazy val pekkoDependencies = Seq(
   "org.apache.pekko" %% "pekko-stream" % VersionPekko,
   "org.apache.pekko" %% "pekko-testkit" % VersionPekko % Test
+)
+
+/** The dependencies to the logging framework. */
+lazy val logDependencies = Seq(
+  "org.apache.logging.log4j" % "log4j-api" % VersionLog4j,
+  "org.apache.logging.log4j" % "log4j-core" % VersionLog4j,
+  "org.apache.logging.log4j" % "log4j-jcl" % VersionLog4j,
+  "org.apache.logging.log4j" % "log4j-slf4j2-impl" % VersionLog4j,
 )
 
 /** The dependencies used for testing. */
@@ -75,6 +84,7 @@ lazy val Subtitler = (project in file("."))
     libraryDependencies += "org.scalafx" %% "scalafx" % VersionScalaFX,
     libraryDependencies ++= javaFxDependencies(),
     libraryDependencies ++= pekkoDependencies,
+    libraryDependencies ++= logDependencies,
     libraryDependencies ++= testDependencies,
     name := "subtitler",
     Test / fork := true
