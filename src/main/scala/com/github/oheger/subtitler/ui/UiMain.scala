@@ -49,7 +49,8 @@ object UiMain extends JFXApp3:
           padding = Insets(20, 20, 20, 20)
           children = Seq(
             configPane,
-            subtitlesPane
+            subtitlesPane,
+            errorPane
           )
     controller.setUp()
 
@@ -142,3 +143,34 @@ object UiMain extends JFXApp3:
             graphic = Circle(radius = 10, fill = Color(red = 1, green = 1, blue = 1, opacity = 1))
             onAction.value = _ => controller.stopRecognizerStream()
         )
+
+  /**
+    * Returns the pane with error information in case the recognizer stream
+    * failed with an error.
+    *
+    * @return the error pane
+    */
+  private def errorPane: TitledPane =
+    new TitledPane:
+      visible <== controller.errorViewVisible
+      text <== controller.exceptionClass
+      collapsible = false
+      content = new BorderPane:
+        center = new TextArea:
+          text <== controller.exceptionMessage
+          margin = Insets(top = 10, right = 0, bottom = 0, left = 0)
+          wrapText = true
+          editable = false
+          style =
+            """
+              |-fx-text-fill: red;
+              |-fx-font-size: 14;
+              |""".stripMargin
+        bottom = new HBox:
+          margin = Insets(top = 10, left = 10, right = 10, bottom = 10)
+          children = Seq(
+            new Button:
+              text = "Back"
+              padding = Insets(20, 20, 20, 20)
+              onAction.value = _ => controller.resetError()
+          )
