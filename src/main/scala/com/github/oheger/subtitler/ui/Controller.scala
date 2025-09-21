@@ -16,6 +16,7 @@
 
 package com.github.oheger.subtitler.ui
 
+import com.github.oheger.subtitler.config.SubtitlerConfig
 import com.github.oheger.subtitler.stream.SpeechRecognizerStream
 import javafx.collections.{FXCollections, ObservableList}
 import org.apache.pekko.Done
@@ -32,9 +33,6 @@ import scala.concurrent.duration.Duration
 import scala.util.Failure
 
 object Controller:
-  /** The default number of subtitles that are displayed. */
-  final val DefaultSubtitleCount = 3
-
   /**
     * Tries to generate a better exception message with hints to solve the
     * problem based on the given exception.
@@ -79,20 +77,26 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
     * A property that stores the selected element of the combo box with the
     * input device names.
     */
-  final val selectedInputDevice: StringProperty = StringProperty("")
+  final val selectedInputDevice: StringProperty = StringProperty(SubtitlerConfig.DefaultConfig.inputDevice)
 
   /**
     * A property that stores the path to the speech model to be used for
     * speech recognition.
     */
-  final val modelPath: StringProperty = StringProperty("")
+  final val modelPath: StringProperty = StringProperty(SubtitlerConfig.DefaultConfig.modelPath)
 
   /**
     * A property that stores the number of subtitles to be displayed. When new
     * text is recognized, the oldest subtitle is removed, and a new is added to
     * keep this number.
     */
-  final val subtitleCount = IntegerProperty(DefaultSubtitleCount)
+  final val subtitleCount = IntegerProperty(SubtitlerConfig.DefaultConfig.subtitleCount)
+
+  /**
+    * A property that stores CSS information that are used to style the 
+    * subtitles.
+    */
+  final val subtitleStyles = StringProperty(SubtitlerConfig.DefaultConfig.subtitleStyles)
 
   /**
     * A property that stores the message of the exception if the recognizer
@@ -168,12 +172,26 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
   def setUp(): Unit =
     updateInputDevices()
 
+    val config = SubtitlerConfig.loadConfig()
+    modelPath.value = config.modelPath
+    selectedInputDevice.value = config.inputDevice
+    subtitleStyles.value = config.subtitleStyles
+    subtitleCount.value = config.subtitleCount
+
   /**
     * Performs cleanup of resources when shutting down the application. This
     * function should be called when the application is closing.
     */
   def shutdown(): Unit =
-    Await.ready(actorSystem.terminate(), Duration.Inf)
+    val futTerminated = actorSystem.terminate()
+    val config = SubtitlerConfig(
+      modelPath = modelPath.value,
+      inputDevice = selectedInputDevice.value,
+      subtitleStyles = subtitleStyles.value,
+      subtitleCount = subtitleCount.value
+    )
+    SubtitlerConfig.saveConfig(config)
+    Await.ready(futTerminated, Duration.Inf)
 
   /**
     * Updates the property with information about available mixers.
