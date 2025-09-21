@@ -92,8 +92,11 @@ class ControllerStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     super.afterAll()
 
   "A Controller" should "process results from the recognition stream" in :
-    val textResults = (1 to Controller.DefaultSubtitleCount).map(idx => s"Text $idx")
-    val helper = new StreamTestHelper().startStream()
+    val subtitleCount = 3
+    val textResults = (1 to subtitleCount).map(idx => s"Text $idx")
+    val helper = new StreamTestHelper()
+    helper.controller.subtitleCount.value = subtitleCount
+    helper.startStream()
 
     textResults.foreach(helper.pushResult)
     helper.syncActions(textResults.length)

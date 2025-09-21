@@ -16,6 +16,8 @@
 
 package com.github.oheger.subtitler.ui
 
+import com.github.oheger.subtitler.TempFileSupport
+import com.github.oheger.subtitler.config.SubtitlerConfig
 import com.github.oheger.subtitler.stream.SpeechRecognizerStream
 import javafx.collections.FXCollections
 import org.apache.pekko.Done
@@ -45,7 +47,8 @@ end ControllerSpec
 /**
   * Test class for [[Controller]].
   */
-class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEach with MockitoSugar with TryValues:
+class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEach with MockitoSugar with TryValues
+  with TempFileSupport:
 
   import ControllerSpec.*
 
@@ -58,6 +61,7 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
 
   override protected def afterEach(): Unit =
     mockedAudioSystem.close()
+    System.clearProperty(SubtitlerConfig.ConfigFileProperty)
     super.afterEach()
 
   /**
@@ -259,6 +263,8 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
     val promiseShutdownComplete = Promise[Terminated]()
     val actorSystem = mock[ActorSystem]
     when(actorSystem.terminate()).thenReturn(promiseShutdownComplete.future)
+    val configFile = newTempFile()
+    System.setProperty(SubtitlerConfig.ConfigFileProperty, configFile.toString)
 
     val controller = createController(actorSystem)
     val latch = new CountDownLatch(1)
@@ -273,3 +279,55 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
 
     latch.await(3, TimeUnit.SECONDS) shouldBe true
     shutdownThread.join()
+
+  it should "set default properties if no configuration file is found" in :
+    System.setProperty(SubtitlerConfig.ConfigFileProperty, "/non/existing/config/file")
+    val controller = createController()
+
+    controller.setUp()
+
+    controller.selectedInputDevice.value should be(SubtitlerConfig.DefaultConfig.inputDevice)
+    controller.modelPath.value should be(SubtitlerConfig.DefaultConfig.modelPath)
+    controller.subtitleStyles.value should be(SubtitlerConfig.DefaultConfig.subtitleStyles)
+    controller.subtitleCount.value should be(SubtitlerConfig.DefaultConfig.subtitleCount)
+
+  it should "initialize its properties from a configuration file" in :
+    val config = SubtitlerConfig(
+      modelPath = "/test/model/path",
+      inputDevice = "test-input-device",
+      subtitleStyles = "-fx-font-size: 24;\n-fx-font-style: bold;",
+      subtitleCount = 8
+    )
+    val configFile = newTempFile()
+    System.setProperty(SubtitlerConfig.ConfigFileProperty, configFile.toString)
+    SubtitlerConfig.saveConfig(config)
+    val controller = createController()
+
+    controller.setUp()
+
+    controller.modelPath.value should be(config.modelPath)
+    controller.selectedInputDevice.value should be(config.inputDevice)
+    controller.subtitleStyles.value should be(config.subtitleStyles)
+    controller.subtitleCount.value should be(config.subtitleCount)
+
+  it should "persist the configuration settings on shutdown" in :
+    val config = SubtitlerConfig(
+      modelPath = "/test/model/path",
+      inputDevice = "test-input-device",
+      subtitleStyles = "-fx-font-size: 24;\n-fx-font-style: bold;",
+      subtitleCount = 8
+    )
+    val configFile = newTempFile()
+    System.setProperty(SubtitlerConfig.ConfigFileProperty, configFile.toString)
+    val actorSystem = mock[ActorSystem]
+    when(actorSystem.terminate()).thenReturn(Future.successful(Terminated))
+
+    val controller = createController(actorSystem = actorSystem)
+    controller.modelPath.value = config.modelPath
+    controller.selectedInputDevice.value = config.inputDevice
+    controller.subtitleStyles.value = config.subtitleStyles
+    controller.subtitleCount.value = config.subtitleCount
+    controller.shutdown()
+
+    val savedConfig = SubtitlerConfig.loadConfig()
+    savedConfig should be(config)
