@@ -23,6 +23,7 @@ import scalafx.geometry.Insets
 import scalafx.geometry.Pos.CenterLeft
 import scalafx.scene.Scene
 import scalafx.scene.control.*
+import scalafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory
 import scalafx.scene.layout.{BorderPane, HBox, StackPane, VBox}
 import scalafx.scene.paint.Color
 import scalafx.scene.shape.Circle
@@ -98,6 +99,13 @@ object UiMain extends JFXApp3:
                 text = "Reload"
                 onAction.value = _ => controller.updateInputDevices()
             ),
+          new Label:
+            text = "Number of subtitle rows:",
+          createSubtitleCountSpinner(),
+          new Label:
+            text = "Styles for subtitles:",
+          new TextArea:
+            text <==> controller.subtitleStyles,
           new Button:
             margin = Insets(top = 20, right = 0, bottom = 0, left = 0)
             text = "Start subtitles"
@@ -106,6 +114,17 @@ object UiMain extends JFXApp3:
             disable <== !controller.canStartRecognizerStream
             onAction.value = _ => controller.startRecognizerStream()
         )
+
+  /**
+    * Creates the ''spinner'' controller for entering the number of subtitles
+    * to be displayed.
+    *
+    * @return the spinner for the number of subtitles
+    */
+  private def createSubtitleCountSpinner(): Spinner[Integer] =
+    val valueFactory = new IntegerSpinnerValueFactory(1, 100)
+    valueFactory.value <==> controller.subtitleCount
+    new Spinner[Integer](valueFactory)
 
   /**
     * Returns the pane showing the subtitles.
@@ -128,12 +147,7 @@ object UiMain extends JFXApp3:
         text <== subtitlesText
         wrapText = true
         editable = false
-        style =
-          """
-            |-fx-text-fill: blue;
-            |-fx-font-size: 24;
-            |-fx-font-weight: bolder;
-            |""".stripMargin
+        style <== controller.subtitleStyles
       bottom = new HBox:
         margin = Insets(top = 10, left = 10, right = 10, bottom = 10)
         children = Seq(
