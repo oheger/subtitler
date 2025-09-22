@@ -23,13 +23,13 @@ import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Sink
 import scalafx.beans.binding.{Bindings, BooleanBinding}
-import scalafx.beans.property.{IntegerProperty, ObjectProperty, StringProperty}
+import scalafx.beans.property.{ObjectProperty, StringProperty}
 import scalafx.stage.{DirectoryChooser, Window}
 
 import java.io.{File, IOException}
 import javax.sound.sampled.AudioSystem
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Failure
 
 object Controller:
@@ -90,7 +90,7 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
     * text is recognized, the oldest subtitle is removed, and a new is added to
     * keep this number.
     */
-  final val subtitleCount = IntegerProperty(SubtitlerConfig.DefaultConfig.subtitleCount)
+  final val subtitleCount = ObjectProperty[Integer](SubtitlerConfig.DefaultConfig.subtitleCount)
 
   /**
     * A property that stores CSS information that are used to style the 
