@@ -188,7 +188,8 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
       modelPath = modelPath.value,
       inputDevice = selectedInputDevice.value,
       subtitleStyles = subtitleStyles.value,
-      subtitleCount = subtitleCount.value
+      subtitleCount = subtitleCount.value,
+      SubtitlerConfig.DefaultWindowBounds
     )
     SubtitlerConfig.saveConfig(config)
     Await.ready(futTerminated, Duration.Inf)
