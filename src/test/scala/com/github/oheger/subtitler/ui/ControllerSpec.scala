@@ -296,7 +296,8 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
       modelPath = "/test/model/path",
       inputDevice = "test-input-device",
       subtitleStyles = "-fx-font-size: 24;\n-fx-font-style: bold;",
-      subtitleCount = 8
+      subtitleCount = 8,
+      bounds = SubtitlerConfig.WindowBounds(27, 43, 856, 623)
     )
     val configFile = newTempFile()
     System.setProperty(SubtitlerConfig.ConfigFileProperty, configFile.toString)
@@ -315,7 +316,8 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
       modelPath = "/test/model/path",
       inputDevice = "test-input-device",
       subtitleStyles = "-fx-font-size: 24;\n-fx-font-style: bold;",
-      subtitleCount = 8
+      subtitleCount = 8,
+      bounds = SubtitlerConfig.DefaultWindowBounds
     )
     val configFile = newTempFile()
     System.setProperty(SubtitlerConfig.ConfigFileProperty, configFile.toString)

@@ -17,6 +17,7 @@
 package com.github.oheger.subtitler.config
 
 import com.github.oheger.subtitler.TempFileSupport
+import com.github.oheger.subtitler.config.SubtitlerConfig.WindowBounds
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -82,7 +83,8 @@ class SubtitlerConfigSpec extends AnyFlatSpecLike with BeforeAndAfterEach with M
       modelPath = "/opt/vosc/my-model",
       inputDevice = "my-audio-device",
       subtitleCount = 5,
-      subtitleStyles = "-fx-font-size: 22;\n-fx-font-color:black;"
+      subtitleStyles = "-fx-font-size: 22;\n-fx-font-color:black;",
+      bounds = WindowBounds(10, 20, 1024, 768)
     )
 
     SubtitlerConfig.saveConfig(config) should be(configFile)
@@ -104,7 +106,8 @@ class SubtitlerConfigSpec extends AnyFlatSpecLike with BeforeAndAfterEach with M
       modelPath = "",
       inputDevice = "",
       subtitleStyles = "",
-      subtitleCount = 3
+      subtitleCount = 3,
+      bounds = SubtitlerConfig.DefaultWindowBounds
     )
 
     SubtitlerConfig.saveConfig(config)

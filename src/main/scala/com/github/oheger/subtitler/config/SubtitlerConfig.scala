@@ -16,6 +16,7 @@
 
 package com.github.oheger.subtitler.config
 
+import com.github.oheger.subtitler.config.SubtitlerConfig.WindowBounds
 import org.apache.logging.log4j.LogManager
 import spray.json.*
 import spray.json.DefaultJsonProtocol.*
@@ -38,6 +39,31 @@ object SubtitlerConfig extends DefaultJsonProtocol:
   final val DefaultConfigFileName = ".subtitler.json"
 
   /**
+    * A data class for storing the bounds of the application window. This is
+    * used to store the position of the window on the screen, so that the
+    * window can be restored when the application starts again. For the main
+    * use case, it is certainly helpful if the window's geometry is aligned
+    * with the styles configured for the subtitles.
+    *
+    * @param x      the X position of the window
+    * @param y      the Y position of the window
+    * @param width  the width of the window
+    * @param height the height of the window
+    */
+  final case class WindowBounds(x: Double,
+                                y: Double,
+                                width: Double,
+                                height: Double)
+
+  /** A default instance of window bounds. */
+  final val DefaultWindowBounds: WindowBounds = WindowBounds(
+    x = 0,
+    y = 0,
+    width = 640,
+    height = 480
+  )
+
+  /**
     * A configuration with default values for all properties. This instance is
     * used if no persistent configuration could be found.
     */
@@ -45,7 +71,8 @@ object SubtitlerConfig extends DefaultJsonProtocol:
     modelPath = "",
     inputDevice = "",
     subtitleStyles = "",
-    subtitleCount = 1
+    subtitleCount = 1,
+    bounds = DefaultWindowBounds
   )
 
   /**
@@ -57,14 +84,19 @@ object SubtitlerConfig extends DefaultJsonProtocol:
     * @param inputDevice    the name of the device to capture audio from
     * @param subtitleStyles CSS styles for the view of the subtitles
     * @param subtitleCount  the number of subtitles to display
+    * @param bounds         the bounds of the application window
     */
   private case class SerializableConfig(modelPath: Option[String],
                                         inputDevice: Option[String],
                                         subtitleStyles: Option[String],
-                                        subtitleCount: Option[Int])
+                                        subtitleCount: Option[Int],
+                                        bounds: Option[WindowBounds])
+
+  /** The format to serialize window bounds. */
+  private given windowBoundsFormat: RootJsonFormat[WindowBounds] = jsonFormat4(WindowBounds.apply)
 
   /** The format to serialize the configuration. */
-  private given configFormat: RootJsonFormat[SerializableConfig] = jsonFormat4(SerializableConfig.apply)
+  private given configFormat: RootJsonFormat[SerializableConfig] = jsonFormat5(SerializableConfig.apply)
 
   /** The logger. */
   private val log = LogManager.getLogger(classOf[SubtitlerConfig])
@@ -143,7 +175,8 @@ object SubtitlerConfig extends DefaultJsonProtocol:
       modelPath = config.modelPath.getOrElse(DefaultConfig.modelPath),
       inputDevice = config.inputDevice.getOrElse(DefaultConfig.inputDevice),
       subtitleCount = config.subtitleCount.getOrElse(DefaultConfig.subtitleCount),
-      subtitleStyles = config.subtitleStyles.getOrElse(DefaultConfig.subtitleStyles)
+      subtitleStyles = config.subtitleStyles.getOrElse(DefaultConfig.subtitleStyles),
+      bounds = config.bounds.getOrElse(DefaultWindowBounds)
     )
 
   /**
@@ -158,7 +191,8 @@ object SubtitlerConfig extends DefaultJsonProtocol:
       modelPath = toOptionString(config.modelPath),
       inputDevice = toOptionString(config.inputDevice),
       subtitleStyles = toOptionString(config.subtitleStyles),
-      subtitleCount = Some(config.subtitleCount)
+      subtitleCount = Some(config.subtitleCount),
+      bounds = Some(config.bounds)
     )
 
   /**
@@ -181,8 +215,10 @@ end SubtitlerConfig
   * @param inputDevice    the name of the device to capture audio from
   * @param subtitleStyles CSS styles for the view of the subtitles
   * @param subtitleCount  the number of subtitles to display
+  * @param bounds         the bounds of the application window
   */
 case class SubtitlerConfig(modelPath: String,
                            inputDevice: String,
                            subtitleStyles: String,
-                           subtitleCount: Int)
+                           subtitleCount: Int,
+                           bounds: WindowBounds)
