@@ -53,10 +53,10 @@ object UiMain extends JFXApp3:
             subtitlesPane,
             errorPane
           )
-    controller.setUp()
+    controller.setUp(stage)
 
   override def stopApp(): Unit =
-    controller.shutdown()
+    controller.shutdown(stage)
     super.stopApp()
 
   /**

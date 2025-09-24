@@ -17,8 +17,10 @@
 package com.github.oheger.subtitler.ui
 
 import com.github.oheger.subtitler.config.SubtitlerConfig
+import com.github.oheger.subtitler.config.SubtitlerConfig.WindowBounds
 import com.github.oheger.subtitler.stream.SpeechRecognizerStream
 import javafx.collections.{FXCollections, ObservableList}
+import javafx.stage.Window as JfxWindow
 import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Sink
@@ -167,9 +169,12 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
   /**
     * Initializes this controller. This function must be called when the
     * application starts up. It makes sure that the controller's properties are
-    * correctly populated with their initial values.
+    * correctly populated with their initial values, so that they can be
+    * displayed in the UI. Also, stored bounds are applied to the main window.
+    *
+    * @param stage the application main window
     */
-  def setUp(): Unit =
+  def setUp(stage: JfxWindow): Unit =
     updateInputDevices()
 
     val config = SubtitlerConfig.loadConfig()
@@ -178,18 +183,32 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
     subtitleStyles.value = config.subtitleStyles
     subtitleCount.value = config.subtitleCount
 
+    stage.setX(config.bounds.x)
+    stage.setY(config.bounds.y)
+    stage.setWidth(config.bounds.width)
+    stage.setHeight(config.bounds.height)
+
   /**
-    * Performs cleanup of resources when shutting down the application. This
-    * function should be called when the application is closing.
+    * Performs cleanup of resources when shutting down the application. It also
+    * persists the values from the configuration view and the bounds of the
+    * main window in the configuration. This function should be called when the
+    * application is closing.
+    *
+    * @param stage the application main window
     */
-  def shutdown(): Unit =
+  def shutdown(stage: JfxWindow): Unit =
     val futTerminated = actorSystem.terminate()
     val config = SubtitlerConfig(
       modelPath = modelPath.value,
       inputDevice = selectedInputDevice.value,
       subtitleStyles = subtitleStyles.value,
       subtitleCount = subtitleCount.value,
-      SubtitlerConfig.DefaultWindowBounds
+      bounds = WindowBounds(
+        x = stage.getX,
+        y = stage.getY,
+        width = stage.getWidth,
+        height = stage.getHeight
+      )
     )
     SubtitlerConfig.saveConfig(config)
     Await.ready(futTerminated, Duration.Inf)

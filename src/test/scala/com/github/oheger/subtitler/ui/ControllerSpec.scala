@@ -20,6 +20,7 @@ import com.github.oheger.subtitler.TempFileSupport
 import com.github.oheger.subtitler.config.SubtitlerConfig
 import com.github.oheger.subtitler.stream.SpeechRecognizerStream
 import javafx.collections.FXCollections
+import javafx.stage.Window as JfxWindow
 import org.apache.pekko.Done
 import org.apache.pekko.actor.{ActorSystem, Terminated}
 import org.mockito.ArgumentMatchers.{any, eq as eqArg}
@@ -138,7 +139,7 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
     val controller = createController()
     property <==> controller.inputDevices
 
-    controller.setUp()
+    controller.setUp(mock)
 
     property.value should contain theSameElementsInOrderAs expectedDevices
 
@@ -146,7 +147,7 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
     val property = ObjectProperty(FXCollections.observableArrayList[String]())
     val controller = createController()
     property <==> controller.inputDevices
-    controller.setUp()
+    controller.setUp(mock)
     val updatedMixers = List("M1", "M2", "M3", "M4")
     initMixerInfo(updatedMixers)
 
@@ -269,7 +270,7 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
     val controller = createController(actorSystem)
     val latch = new CountDownLatch(1)
     val shutdownRunnable: Runnable = () =>
-      controller.shutdown()
+      controller.shutdown(mock)
       latch.countDown()
     val shutdownThread = new Thread(shutdownRunnable)
     shutdownThread.start()
@@ -284,12 +285,17 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
     System.setProperty(SubtitlerConfig.ConfigFileProperty, "/non/existing/config/file")
     val controller = createController()
 
-    controller.setUp()
+    val stage = mock[JfxWindow]
+    controller.setUp(stage)
 
     controller.selectedInputDevice.value should be(SubtitlerConfig.DefaultConfig.inputDevice)
     controller.modelPath.value should be(SubtitlerConfig.DefaultConfig.modelPath)
     controller.subtitleStyles.value should be(SubtitlerConfig.DefaultConfig.subtitleStyles)
     controller.subtitleCount.value should be(SubtitlerConfig.DefaultConfig.subtitleCount)
+    verify(stage).setX(SubtitlerConfig.DefaultWindowBounds.x)
+    verify(stage).setY(SubtitlerConfig.DefaultWindowBounds.y)
+    verify(stage).setWidth(SubtitlerConfig.DefaultWindowBounds.width)
+    verify(stage).setHeight(SubtitlerConfig.DefaultWindowBounds.height)
 
   it should "initialize its properties from a configuration file" in :
     val config = SubtitlerConfig(
@@ -304,12 +310,17 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
     SubtitlerConfig.saveConfig(config)
     val controller = createController()
 
-    controller.setUp()
+    val stage = mock[JfxWindow]
+    controller.setUp(stage)
 
     controller.modelPath.value should be(config.modelPath)
     controller.selectedInputDevice.value should be(config.inputDevice)
     controller.subtitleStyles.value should be(config.subtitleStyles)
     controller.subtitleCount.value should be(config.subtitleCount)
+    verify(stage).setX(config.bounds.x)
+    verify(stage).setY(config.bounds.y)
+    verify(stage).setWidth(config.bounds.width)
+    verify(stage).setHeight(config.bounds.height)
 
   it should "persist the configuration settings on shutdown" in :
     val config = SubtitlerConfig(
@@ -317,19 +328,24 @@ class ControllerSpec extends AnyFlatSpecLike with Matchers with BeforeAndAfterEa
       inputDevice = "test-input-device",
       subtitleStyles = "-fx-font-size: 24;\n-fx-font-style: bold;",
       subtitleCount = 8,
-      bounds = SubtitlerConfig.DefaultWindowBounds
+      bounds = SubtitlerConfig.WindowBounds(49, 75, 523, 481)
     )
     val configFile = newTempFile()
     System.setProperty(SubtitlerConfig.ConfigFileProperty, configFile.toString)
     val actorSystem = mock[ActorSystem]
     when(actorSystem.terminate()).thenReturn(Future.successful(Terminated))
-
     val controller = createController(actorSystem = actorSystem)
     controller.modelPath.value = config.modelPath
     controller.selectedInputDevice.value = config.inputDevice
     controller.subtitleStyles.value = config.subtitleStyles
     controller.subtitleCount.value = config.subtitleCount
-    controller.shutdown()
+    val stage = mock[JfxWindow]
+    when(stage.getX).thenReturn(config.bounds.x)
+    when(stage.getY).thenReturn(config.bounds.y)
+    when(stage.getWidth).thenReturn(config.bounds.width)
+    when(stage.getHeight).thenReturn(config.bounds.height)
+    
+    controller.shutdown(stage)
 
     val savedConfig = SubtitlerConfig.loadConfig()
     savedConfig should be(config)
