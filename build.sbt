@@ -87,5 +87,13 @@ lazy val Subtitler = (project in file("."))
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= testDependencies,
     name := "subtitler",
-    Test / fork := true
+    Test / fork := true,
+    Compile / mainClass := Some("com.github.oheger.subtitler.ui.UiMain"),
+    assembly / assemblyMergeStrategy := {
+      case PathList(ps @ _*) if ps.startsWith(List("META-INF", "substrate", "config")) => MergeStrategy.discard
+      case PathList(ps @ _*) if ps.last == "module-info.class" => MergeStrategy.discard
+      case x =>
+        val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
+        oldStrategy(x)
+    }
   )
