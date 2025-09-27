@@ -242,7 +242,7 @@ class Controller(actorSystem: ActorSystem = ActorSystem("Subtitler"),
     */
   def startRecognizerStream(): Boolean =
     if canStartRecognizerStream.value then
-      subtitles.value.clear()
+      subtitles.value = FXCollections.observableArrayList()
       val handle = streamRunner(selectedInputDevice.value, modelPath.value, recognizerStreamSink)(using actorSystem)
       handleCompletedStream(handle)
       streamHandle.value = Some(handle)

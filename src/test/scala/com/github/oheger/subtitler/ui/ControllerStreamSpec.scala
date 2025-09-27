@@ -18,6 +18,7 @@ package com.github.oheger.subtitler.ui
 
 import com.github.oheger.subtitler.stream.{CaptureAudioSource, SpeechRecognizerStage, SpeechRecognizerStream}
 import com.github.oheger.subtitler.ui.ControllerStreamSpec.{ErrorPrefix, IOExceptionPrefix, IllegalArgumentExceptionPrefix, InputDevice, ModelPath, generateException}
+import javafx.collections.FXCollections
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.BoundedSourceQueue
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
@@ -25,6 +26,7 @@ import org.apache.pekko.testkit.TestKit
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import scalafx.beans.property.ObjectProperty
 
 import java.io.IOException
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
@@ -117,15 +119,16 @@ class ControllerStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     helper.completeStream()
 
   it should "reset the subtitles when starting the stream" in :
-    val Subtitle = "The new subtitle"
+    val subtitles = ObjectProperty(FXCollections.observableArrayList[String]())
     val helper = new StreamTestHelper
-    helper.controller.subtitles.value.addAll("foo", "bar", "baz")
+    subtitles <== helper.controller.subtitles
+    val existingSubtitles = FXCollections.observableArrayList("foo", "bar", "baz")
+    helper.controller.subtitles.value = existingSubtitles
+    subtitles.value should not be empty
 
     helper.startStream()
-      .pushResult(Subtitle)
-      .syncActions(1)
 
-    helper.controller.subtitles.value should contain only Subtitle
+    subtitles.value shouldBe empty
     helper.completeStream()
 
   it should "allow starting another stream after completing one" in :
