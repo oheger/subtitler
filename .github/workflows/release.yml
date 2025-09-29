@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-RC[0-9]+"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  create-release:
+    strategy:
+      matrix:
+        target:
+        - name: "Linux x64"
+          os: ubuntu-24.04
+
+    runs-on: ${{ matrix.target.os }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Set up JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: 'sbt'
+    - name: Set up SBT
+      uses: sbt/setup-sbt@v1
+    - name: Determine versions
+      id: version-getter
+      shell: bash
+      run: |
+        SUBTITLER_VERSION=$(sed -e 's/^lazy val VersionSubtitler[^"]*"\([^"]*\)".*/\1/;t;d' build.sbt)
+        SCALA_VERSION=$(sed -e 's/^lazy val VersionScala[[:space:]][^"]*"\([^"]*\)".*/\1/;t;d' build.sbt)
+        echo "SUBTITLER_VERSION=$SUBTITLER_VERSION" >> "$GITHUB_OUTPUT"
+        echo "SCALA_VERSION=$SCALA_VERSION" >> "$GITHUB_OUTPUT"
+    - name: Build installer
+      env:
+        SUBTITLER_VERSION: ${{ steps.version-getter.outputs.SUBTITLER_VERSION }}
+        SCALA_VERSION: ${{ steps.version-getter.outputs.SCALA_VERSION }}
+      shell: bash
+      run: |
+        sbt assembly
+        
+        TARGET_DIR=./target/scala-"$SCALA_VERSION"
+        echo "Creating release $SUBTITLER_VERSION for Scala $SCALA_VERSION from $TARGET_DIR."
+        pwd
+        ls -l $TARGET_DIR
+        
+        jpackage \
+          --verbose \
+          --input "$TARGET_DIR" \
+          --name "Subtitler" \
+          --app-version "$SUBTITLER_VERSION" \
+          --description "An application that transforms speech to text in realtime." \
+          --vendor "oheger" \
+          --main-jar "subtitler-assembly-$SUBTITLER_VERSION.jar" \
+          --main-class "com.github.oheger.subtitler.ui.UiMain" \
+          --license-file "LICENSE.txt" \
+          --dest target/installer
