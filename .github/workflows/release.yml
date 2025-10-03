@@ -17,6 +17,7 @@ jobs:
         target:
         - name: "Linux x64"
           os: ubuntu-24.04
+          options-suffix: "linux"
 
     runs-on: ${{ matrix.target.os }}
     steps:
@@ -48,8 +49,13 @@ jobs:
         
         TARGET_DIR=./target/scala-"$SCALA_VERSION"
         echo "Creating release $SUBTITLER_VERSION for Scala $SCALA_VERSION from $TARGET_DIR."
-        pwd
-        ls -l $TARGET_DIR
+        
+        # The '@' option of jpackage to specify a parameter file name does not seem to work;
+        # therefore, the file is read manually.
+        platformOptions=""
+        while read -r line; do
+          platformOptions="$platformOptions $line"
+        done < "./src/main/jpackage/jpackage-options-${{ matrix.target.options-suffix }}.txt"
         
         jpackage \
           --verbose \
@@ -58,7 +64,9 @@ jobs:
           --app-version "$SUBTITLER_VERSION" \
           --description "An application that transforms speech to text in realtime." \
           --vendor "oheger" \
+          --about-url "https://github.com/oheger/subtitler" \
           --main-jar "subtitler-assembly-$SUBTITLER_VERSION.jar" \
           --main-class "com.github.oheger.subtitler.ui.UiMain" \
           --license-file "LICENSE.txt" \
-          --dest target/installer
+          --dest target/installer \
+          $platformOptions
