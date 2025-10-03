@@ -18,6 +18,8 @@ jobs:
         - name: "Linux x64"
           os: ubuntu-24.04
           options-suffix: "linux"
+          artifact: "deb"
+          extension: "_amd64.deb"
 
     runs-on: ${{ matrix.target.os }}
     steps:
@@ -70,3 +72,11 @@ jobs:
           --license-file "LICENSE.txt" \
           --dest target/installer \
           $platformOptions
+    - name: Upload installer
+      env:
+        SUBTITLER_VERSION: ${{ steps.version-getter.outputs.SUBTITLER_VERSION }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: subtitler-${{ env.SUBTITLER_VERSION }}-${{ matrix.target.artifact }}
+        path: ./target/installer/subtitler_${{ env.SUBTITLER_VERSION }}${{ matrix.target.extension }}
+        retention-days: 7
