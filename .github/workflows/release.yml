@@ -11,7 +11,25 @@ permissions:
   contents: read
 
 jobs:
+  get-versions:
+    runs-on: ubuntu-24.04
+    outputs:
+      subtitlerVersion: ${{ steps.version-getter.outputs.SUBTITLER_VERSION }}
+      scalaVersion: ${{ steps.version-getter.outputs.SCALA_VERSION }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Determine versions
+      id: version-getter
+      shell: bash
+      run: |
+        SUBTITLER_VERSION=$(sed -e 's/^lazy val VersionSubtitler[^"]*"\([^"]*\)".*/\1/;t;d' build.sbt)
+        SCALA_VERSION=$(sed -e 's/^lazy val VersionScala[[:space:]][^"]*"\([^"]*\)".*/\1/;t;d' build.sbt)
+        echo "SUBTITLER_VERSION=$SUBTITLER_VERSION" >> "$GITHUB_OUTPUT"
+        echo "SCALA_VERSION=$SCALA_VERSION" >> "$GITHUB_OUTPUT"      
+
   create-release:
+    needs: get-versions
     strategy:
       matrix:
         target:
@@ -33,18 +51,10 @@ jobs:
         cache: 'sbt'
     - name: Set up SBT
       uses: sbt/setup-sbt@v1
-    - name: Determine versions
-      id: version-getter
-      shell: bash
-      run: |
-        SUBTITLER_VERSION=$(sed -e 's/^lazy val VersionSubtitler[^"]*"\([^"]*\)".*/\1/;t;d' build.sbt)
-        SCALA_VERSION=$(sed -e 's/^lazy val VersionScala[[:space:]][^"]*"\([^"]*\)".*/\1/;t;d' build.sbt)
-        echo "SUBTITLER_VERSION=$SUBTITLER_VERSION" >> "$GITHUB_OUTPUT"
-        echo "SCALA_VERSION=$SCALA_VERSION" >> "$GITHUB_OUTPUT"
     - name: Build installer
       env:
-        SUBTITLER_VERSION: ${{ steps.version-getter.outputs.SUBTITLER_VERSION }}
-        SCALA_VERSION: ${{ steps.version-getter.outputs.SCALA_VERSION }}
+        SUBTITLER_VERSION: ${{ needs.get-versions.outputs.subtitlerVersion }}
+        SCALA_VERSION: ${{ needs.get-versions.outputs.scalaVersion }}
       shell: bash
       run: |
         sbt assembly
@@ -74,7 +84,7 @@ jobs:
           $platformOptions
     - name: Upload installer
       env:
-        SUBTITLER_VERSION: ${{ steps.version-getter.outputs.SUBTITLER_VERSION }}
+        SUBTITLER_VERSION: ${{ needs.get-versions.outputs.subtitlerVersion }}
       uses: actions/upload-artifact@v4
       with:
         name: subtitler-${{ env.SUBTITLER_VERSION }}-${{ matrix.target.artifact }}
