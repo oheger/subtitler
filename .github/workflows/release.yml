@@ -6,6 +6,12 @@ on:
       - "[0-9]+.[0-9]+.[0-9]+"
       - "[0-9]+.[0-9]+.[0-9]+-RC[0-9]+"
   workflow_dispatch:
+    inputs:
+      draft:
+        description: Should this be a draft release?
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -28,7 +34,7 @@ jobs:
         echo "SUBTITLER_VERSION=$SUBTITLER_VERSION" >> "$GITHUB_OUTPUT"
         echo "SCALA_VERSION=$SCALA_VERSION" >> "$GITHUB_OUTPUT"      
 
-  create-release:
+  create-installers:
     needs: get-versions
     strategy:
       matrix:
@@ -90,3 +96,37 @@ jobs:
         name: subtitler-${{ env.SUBTITLER_VERSION }}-${{ matrix.target.artifact }}
         path: ./target/installer/subtitler_${{ env.SUBTITLER_VERSION }}${{ matrix.target.extension }}
         retention-days: 7
+
+  create-release:
+    needs: [ get-versions, create-installers ]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Download installers
+      uses: actions/download-artifact@v5
+      with:
+        path: artifacts/
+    - name: Create checksums
+      shell: bash
+      run: |
+        shasum --algorithm 256 ./artifacts/* | sed 's|./artifacts/||' > checksums.txt
+    - name: Create release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SUBTITLER_VERSION: ${{ needs.get-versions.outputs.subtitlerVersion }}
+        DRAFT_FLAG: ${{ inputs.draft }}
+      run: |
+        if [[ "$SUBTITLER_VERSION" =~ -RC[0-9]+ ]]; then
+          PRERELEASE_ARG="--prerelease"
+        fi
+        if [[ "$DRAFT_FLAG" = "true" ]]; then
+          DRAFT_ARG="--draft"
+        fi
+
+        gh release create $SUBTITLER_VERSION $PRERELEASE_ARG $DRAFT_ARG \
+          --title "Subtitler $SUBTITLER_VERSION" \
+          './artifacts/*' \
+          'checksums.txt#checksums'
