@@ -39,11 +39,21 @@ jobs:
     strategy:
       matrix:
         target:
-        - name: "Linux x64"
+        - name: "Linux x64 deb"
           os: ubuntu-24.04
-          options-suffix: "linux"
+          options-suffix: "linux-deb"
           artifact: "deb"
           extension: "_amd64.deb"
+        - name: "Linux x64 rpm"
+          os: ubuntu-24.04
+          options-suffix: "linux-rpm"
+          artifact: "rpm"
+          extension: "_amd64.rpm"
+        - name: "Windows msi"
+          os: windows-2025
+          options-suffix: "windows"
+          artifact: "msi"
+          extension: ".msi"
 
     runs-on: ${{ matrix.target.os }}
     steps:
@@ -57,29 +67,39 @@ jobs:
         cache: 'sbt'
     - name: Set up SBT
       uses: sbt/setup-sbt@v1
+    - name: Generate jpackage version
+      id: get-package-version
+      shell: bash
+      env:
+        SUBTITLER_VERSION: ${{ needs.get-versions.outputs.subtitlerVersion }}
+      run: |
+        # Some jpackage installer types do not accept RC version numbers; therefore, this suffix has to be stripped.
+        echo "packageVersion=${SUBTITLER_VERSION//-RC/.}" >> "$GITHUB_OUTPUT"
     - name: Build installer
       env:
         SUBTITLER_VERSION: ${{ needs.get-versions.outputs.subtitlerVersion }}
         SCALA_VERSION: ${{ needs.get-versions.outputs.scalaVersion }}
+        PACKAGE_VERSION: ${{ steps.get-package-version.outputs.packageVersion }}
       shell: bash
       run: |
         sbt assembly
         
         TARGET_DIR=./target/scala-"$SCALA_VERSION"
-        echo "Creating release $SUBTITLER_VERSION for Scala $SCALA_VERSION from $TARGET_DIR."
+        echo "Creating release $SUBTITLER_VERSION ($PACKAGE_VERSION) for Scala $SCALA_VERSION from $TARGET_DIR."
         
         # The '@' option of jpackage to specify a parameter file name does not seem to work;
         # therefore, the file is read manually.
         platformOptions=""
         while read -r line; do
-          platformOptions="$platformOptions $line"
+          trimmedLine=$(echo "$line" | tr -d "[[:cntrl:]]")
+          platformOptions="$platformOptions $trimmedLine"
         done < "./src/main/jpackage/jpackage-options-${{ matrix.target.options-suffix }}.txt"
         
         jpackage \
           --verbose \
           --input "$TARGET_DIR" \
           --name "Subtitler" \
-          --app-version "$SUBTITLER_VERSION" \
+          --app-version "$PACKAGE_VERSION" \
           --description "An application that transforms speech to text in realtime." \
           --vendor "oheger" \
           --about-url "https://github.com/oheger/subtitler" \
@@ -91,10 +111,11 @@ jobs:
     - name: Upload installer
       env:
         SUBTITLER_VERSION: ${{ needs.get-versions.outputs.subtitlerVersion }}
+        PACKAGE_VERSION: ${{ steps.get-package-version.outputs.packageVersion }}
       uses: actions/upload-artifact@v4
       with:
         name: subtitler-${{ env.SUBTITLER_VERSION }}-${{ matrix.target.artifact }}
-        path: ./target/installer/subtitler_${{ env.SUBTITLER_VERSION }}${{ matrix.target.extension }}
+        path: ./target/installer/*
         retention-days: 7
 
   create-release:
@@ -108,10 +129,17 @@ jobs:
     - name: Download installers
       uses: actions/download-artifact@v5
       with:
-        path: artifacts/
+        path: artifact-folders/
+    - name: Flatten artifacts
+      shell: bash
+      run: |
+        mkdir ./artifacts
+        find ./artifact-folders -type f -exec mv -t ./artifacts -f '{}' +
     - name: Create checksums
       shell: bash
       run: |
+        echo "Downloaded artifacts:"
+        ls -R ./artifacts
         shasum --algorithm 256 ./artifacts/* | sed 's|./artifacts/||' > checksums.txt
     - name: Create release
       env:
