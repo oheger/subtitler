@@ -1,0 +1,5 @@
+--type msi
+--win-dir-chooser
+--win-menu
+--win-menu-group Subtitler
+--win-shortcut-prompt
