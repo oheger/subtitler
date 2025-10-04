@@ -126,7 +126,12 @@ jobs:
           DRAFT_ARG="--draft"
         fi
 
-        gh release create $SUBTITLER_VERSION $PRERELEASE_ARG $DRAFT_ARG \
+        RELEASE_NOTES_FILE="./docs/release-notes/${SUBTITLER_VERSION}.md"
+        if [[ -e "$RELEASE_NOTES_FILE" ]]; then
+          RELEASE_NOTES_ARG="--notes-file $RELEASE_NOTES_FILE"
+        fi
+        
+        gh release create $SUBTITLER_VERSION $PRERELEASE_ARG $DRAFT_ARG $RELEASE_NOTES_ARG \
           --title "Subtitler $SUBTITLER_VERSION" \
           './artifacts/*' \
           'checksums.txt#checksums'
