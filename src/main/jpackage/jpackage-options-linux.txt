@@ -1,0 +1,2 @@
+--type deb
+--install-dir /opt/subtitler
