@@ -15,7 +15,7 @@
  */
 
 /** The version of this project. */
-lazy val VersionSubtitler = "0.1-SNAPSHOT"
+lazy val VersionSubtitler = "0.1-RC1"
 
 /** Definition of versions for compile-time dependencies. */
 lazy val VersionJavaFX = "21.0.8"
