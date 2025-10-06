@@ -106,6 +106,7 @@ jobs:
           --main-jar "subtitler-assembly-$SUBTITLER_VERSION.jar" \
           --main-class "com.github.oheger.subtitler.ui.UiMain" \
           --license-file "LICENSE.txt" \
+          --icon ./src/main/jpackage/subtitler.ico \
           --dest target/installer \
           $platformOptions
     - name: Upload installer
