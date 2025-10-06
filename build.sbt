@@ -19,8 +19,8 @@ lazy val VersionSubtitler = "0.0.1-RC1"
 
 /** Definition of versions for compile-time dependencies. */
 lazy val VersionJavaFX = "21.0.8"
-lazy val VersionLog4j = "2.25.1"
-lazy val VersionPekko = "1.2.0"
+lazy val VersionLog4j = "2.25.2"
+lazy val VersionPekko = "1.2.1"
 lazy val VersionScala = "3.7.3"
 lazy val VersionScalaFX = "21.0.0-R32"
 lazy val VersionSprayJson = "1.3.6"
